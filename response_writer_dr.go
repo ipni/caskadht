@@ -21,7 +21,7 @@ const drSchemaBitswap = "bitswap"
 
 type (
 	delegatedRoutingLookupResponseWriter struct {
-		jsonAcceptor
+		jsonResponseWriter
 		key    cid.Cid
 		result drProviderRecords
 	}
@@ -38,12 +38,12 @@ type (
 
 func newDelegatedRoutingLookupResponseWriter(w http.ResponseWriter) lookupResponseWriter {
 	return &delegatedRoutingLookupResponseWriter{
-		jsonAcceptor: newJsonAcceptor(w),
+		jsonResponseWriter: newJsonResponseWriter(w),
 	}
 }
 
 func (d *delegatedRoutingLookupResponseWriter) Accept(r *http.Request) error {
-	if err := d.jsonAcceptor.Accept(r); err != nil {
+	if err := d.jsonResponseWriter.Accept(r); err != nil {
 		return err
 	}
 	sc := strings.TrimPrefix(path.Base(r.URL.Path), "routing/v1/providers/")
@@ -77,8 +77,9 @@ func (d *delegatedRoutingLookupResponseWriter) WriteProviderRecord(provider prov
 		if d.f != nil {
 			d.f.Flush()
 		}
+	} else {
+		d.result.Providers = append(d.result.Providers, rec)
 	}
-	d.result.Providers = append(d.result.Providers, rec)
 	return nil
 }
 
