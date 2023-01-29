@@ -13,25 +13,25 @@ const (
 )
 
 var (
-	_ acceptor            = (*jsonAcceptor)(nil)
-	_ http.ResponseWriter = (*jsonAcceptor)(nil)
+	_ selectiveResponseWriter = (*jsonResponseWriter)(nil)
+	_ http.ResponseWriter     = (*jsonResponseWriter)(nil)
 )
 
-type jsonAcceptor struct {
+type jsonResponseWriter struct {
 	w       http.ResponseWriter
 	f       http.Flusher
 	encoder *json.Encoder
 	nd      bool
 }
 
-func newJsonAcceptor(w http.ResponseWriter) jsonAcceptor {
-	return jsonAcceptor{
+func newJsonResponseWriter(w http.ResponseWriter) jsonResponseWriter {
+	return jsonResponseWriter{
 		w:       w,
 		encoder: json.NewEncoder(w),
 	}
 }
 
-func (i *jsonAcceptor) Accept(r *http.Request) error {
+func (i *jsonResponseWriter) Accept(r *http.Request) error {
 	accepts := r.Header.Values("Accept")
 	var okJson bool
 	for _, accept := range accepts {
@@ -75,14 +75,14 @@ func (i *jsonAcceptor) Accept(r *http.Request) error {
 	return nil
 }
 
-func (i *jsonAcceptor) Header() http.Header {
+func (i *jsonResponseWriter) Header() http.Header {
 	return i.w.Header()
 }
 
-func (i *jsonAcceptor) Write(b []byte) (int, error) {
+func (i *jsonResponseWriter) Write(b []byte) (int, error) {
 	return i.w.Write(b)
 }
 
-func (i *jsonAcceptor) WriteHeader(code int) {
+func (i *jsonResponseWriter) WriteHeader(code int) {
 	i.w.WriteHeader(code)
 }

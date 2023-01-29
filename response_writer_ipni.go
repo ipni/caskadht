@@ -14,7 +14,7 @@ var _ lookupResponseWriter = (*ipniLookupResponseWriter)(nil)
 
 type (
 	ipniLookupResponseWriter struct {
-		jsonAcceptor
+		jsonResponseWriter
 		result MultihashResult
 		count  int
 	}
@@ -34,12 +34,12 @@ type (
 
 func newIPNILookupResponseWriter(w http.ResponseWriter) lookupResponseWriter {
 	return &ipniLookupResponseWriter{
-		jsonAcceptor: newJsonAcceptor(w),
+		jsonResponseWriter: newJsonResponseWriter(w),
 	}
 }
 
 func (i *ipniLookupResponseWriter) Accept(r *http.Request) error {
-	if err := i.jsonAcceptor.Accept(r); err != nil {
+	if err := i.jsonResponseWriter.Accept(r); err != nil {
 		return err
 	}
 	smh := strings.TrimPrefix(path.Base(r.URL.Path), "multihash/")
@@ -81,8 +81,9 @@ func (i *ipniLookupResponseWriter) WriteProviderRecord(provider providerRecord) 
 			i.f.Flush()
 		}
 		i.count++
+	} else {
+		i.result.ProviderResults = append(i.result.ProviderResults, rec)
 	}
-	i.result.ProviderResults = append(i.result.ProviderResults, rec)
 	return nil
 }
 

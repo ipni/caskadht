@@ -12,13 +12,13 @@ type (
 	providerRecord struct {
 		peer.AddrInfo
 	}
-	acceptor interface {
+	selectiveResponseWriter interface {
+		http.ResponseWriter
 		Accept(r *http.Request) error
 	}
 	lookupResponseWriter interface {
 		io.Closer
-		http.ResponseWriter
-		acceptor
+		selectiveResponseWriter
 		Key() cid.Cid
 		WriteProviderRecord(providerRecord) error
 	}
