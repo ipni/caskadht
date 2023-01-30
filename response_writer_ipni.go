@@ -62,14 +62,7 @@ func (i *ipniLookupResponseWriter) WriteProviderRecord(provider providerRecord) 
 		Provider:  provider.AddrInfo,
 	}
 	if i.nd {
-		if err := i.encoder.Encode(ipniResults{
-			MultihashResults: []MultihashResult{
-				{
-					Multihash:       i.result.Multihash,
-					ProviderResults: []ProviderResult{rec},
-				},
-			},
-		}); err != nil {
+		if err := i.encoder.Encode(rec); err != nil {
 			logger.Errorw("Failed to encode ndjson response", "err", err)
 			return err
 		}
