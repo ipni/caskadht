@@ -147,6 +147,23 @@ LOOP:
 				logger.Debugw("No more provider records", "key", w.Key())
 				break LOOP
 			}
+
+			if err := provider.ID.Validate(); err != nil {
+				logger.Debugw("Skipping provider record with invalid ID", "err", err)
+				continue
+			}
+			if len(provider.Addrs) == 0 {
+				found, err := c.routing().FindPeer(ctx, provider.ID)
+				if err != nil {
+					logger.Errorw("Failed to discover addrs for peer ID; skipping provider.", "id", provider.ID, "err", err)
+					continue
+				}
+				if len(found.Addrs) == 0 {
+					logger.Debugw("Found no addrs for peer ID; skipping provider", "id", provider.ID)
+					continue
+				}
+				provider.Addrs = found.Addrs
+			}
 			if err := w.WriteProviderRecord(providerRecord{AddrInfo: provider}); err != nil {
 				logger.Errorw("Failed to encode provider record", "err", err)
 				break LOOP
@@ -165,10 +182,10 @@ LOOP:
 }
 
 func (c *Caskadht) cascadeFindProviders(ctx context.Context, key cid.Cid) <-chan peer.AddrInfo {
-	return c.contentRouting().FindProvidersAsync(ctx, key, 0)
+	return c.routing().FindProvidersAsync(ctx, key, 0)
 }
 
-func (c *Caskadht) contentRouting() routing.ContentRouting {
+func (c *Caskadht) routing() routing.Routing {
 	if c.useAccDHT && c.acc.Ready() {
 		return c.acc
 	}
