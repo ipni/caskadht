@@ -12,11 +12,15 @@ import (
 
 var _ lookupResponseWriter = (*ipniLookupResponseWriter)(nil)
 
+const ipniCascadeQueryKey = "cascade"
+
 type (
 	ipniLookupResponseWriter struct {
 		jsonResponseWriter
-		result MultihashResult
-		count  int
+		result            MultihashResult
+		count             int
+		cascadeLabel      string
+		requireQueryParam bool
 	}
 	ipniResults struct {
 		MultihashResults []MultihashResult
@@ -32,15 +36,27 @@ type (
 	}
 )
 
-func newIPNILookupResponseWriter(w http.ResponseWriter) lookupResponseWriter {
+func newIPNILookupResponseWriter(w http.ResponseWriter, cascadeLabel string, requireQueryParam bool) lookupResponseWriter {
 	return &ipniLookupResponseWriter{
 		jsonResponseWriter: newJsonResponseWriter(w),
+		cascadeLabel:       cascadeLabel,
+		requireQueryParam:  requireQueryParam,
 	}
 }
 
 func (i *ipniLookupResponseWriter) Accept(r *http.Request) error {
 	if err := i.jsonResponseWriter.Accept(r); err != nil {
 		return err
+	}
+	if i.requireQueryParam {
+		if !r.URL.Query().Has(ipniCascadeQueryKey) {
+			logger.Debugw("Rejected request with unspecified cascade query parameter.")
+			return errHttpResponse{status: http.StatusNotFound}
+		}
+		if got := r.URL.Query().Get(ipniCascadeQueryKey); i.cascadeLabel != got {
+			logger.Debugw("Rejected request with mismatching cascade label.", "want", i.cascadeLabel, "got", got)
+			return errHttpResponse{status: http.StatusNotFound}
+		}
 	}
 	smh := strings.TrimPrefix(path.Base(r.URL.Path), "multihash/")
 	var err error

@@ -28,6 +28,8 @@ func main() {
 	libp2pListenAddrs := flag.String("libp2pListenAddrs", "", "The comma separated libp2p host listen addrs. If unspecified the default listen addrs are used at ephemeral port.")
 	httpListenAddr := flag.String("httpListenAddr", "0.0.0.0:40080", "The caskadht HTTP server listen address.")
 	useAcceleratedDHT := flag.Bool("useAcceleratedDHT", true, "Weather to use accelerated DHT client when possible.")
+	ipniRequireQueryParam := flag.Bool("ipniRequireQueryParam", false, "Weather to require IPNI `cascade` query parameter with matching label in order to respond to HTTP lookup requests. Not required by default.")
+	ipniCascadeLabel := flag.String("ipniCascadeLabel", "ipfs-dht", "The IPNI cascade label associated to this instance.")
 	logLevel := flag.String("logLevel", "info", "The logging level. Only applied if GOLOG_LOG_LEVEL environment variable is unset.")
 	flag.Parse()
 
@@ -94,6 +96,8 @@ func main() {
 		caskadht.WithHost(h),
 		caskadht.WithHttpListenAddr(*httpListenAddr),
 		caskadht.WithUseAcceleratedDHT(*useAcceleratedDHT),
+		caskadht.WithIpniCascadeLabel(*ipniCascadeLabel),
+		caskadht.WithIpniRequireCascadeQueryParam(*ipniRequireQueryParam),
 	)
 	if err != nil {
 		logger.Fatalw("Failed to instantiate caskadht", "err", err)
