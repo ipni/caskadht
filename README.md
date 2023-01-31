@@ -26,11 +26,17 @@ $ go install github.com/ipni/caskadht/cmd/caskadht@latest
 $ caskadht 
 Usage of caskadht:
   -httpListenAddr string
-        The caskadht HTTP server listen address. (default "0.0.0.0:40080")
+        The caskadht HTTP server listen address in address:port format. (default "0.0.0.0:40080")
+  -httpResponsePreferJson
+        Whether to prefer responding with JSON instead of NDJSON when Accept header is set to "*/*".
+  -ipniCascadeLabel string
+        The IPNI cascade label associated to this instance. (default "ipfs-dht")
+  -ipniRequireQueryParam
+        Weather to require IPNI "cascade" query parameter with matching label in order to respond to HTTP lookup requests. Not required by default.
   -libp2pIdentityPath string
         The path to the marshalled libp2p host identity. If unspecified a random identity is generated.
   -libp2pListenAddrs string
-        The comma separated libp2p host listen addrs. If unspecified the default listen addrs are used at ephemeral port.
+        The comma separated libp2p host listen multiaddrs. If unspecified the default listen multiaddrs are used at ephemeral port.
   -logLevel string
         The logging level. Only applied if GOLOG_LOG_LEVEL environment variable is unset. (default "info")
   -useAcceleratedDHT

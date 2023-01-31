@@ -113,7 +113,7 @@ func (c *Caskadht) handleMh(w http.ResponseWriter, r *http.Request) {
 func (c *Caskadht) handleMhSubtree(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		c.handleLookup(newIPNILookupResponseWriter(w, c.ipniCascadeLabel, c.ipniRequireCascadeQueryParam), r)
+		c.handleLookup(newIPNILookupResponseWriter(w, c.ipniCascadeLabel, c.ipniRequireCascadeQueryParam, c.httpResponsePreferJson), r)
 	case http.MethodOptions:
 		discardBody(r)
 		c.handleLookupOptions(w)
@@ -126,7 +126,7 @@ func (c *Caskadht) handleMhSubtree(w http.ResponseWriter, r *http.Request) {
 func (c *Caskadht) handleRoutingV1ProvidersSubtree(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		c.handleLookup(newDelegatedRoutingLookupResponseWriter(w), r)
+		c.handleLookup(newDelegatedRoutingLookupResponseWriter(w, c.httpResponsePreferJson), r)
 	case http.MethodOptions:
 		discardBody(r)
 		c.handleLookupOptions(w)

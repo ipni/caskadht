@@ -18,16 +18,18 @@ var (
 )
 
 type jsonResponseWriter struct {
-	w       http.ResponseWriter
-	f       http.Flusher
-	encoder *json.Encoder
-	nd      bool
+	w          http.ResponseWriter
+	f          http.Flusher
+	encoder    *json.Encoder
+	nd         bool
+	preferJson bool
 }
 
-func newJsonResponseWriter(w http.ResponseWriter) jsonResponseWriter {
+func newJsonResponseWriter(w http.ResponseWriter, preferJson bool) jsonResponseWriter {
 	return jsonResponseWriter{
-		w:       w,
-		encoder: json.NewEncoder(w),
+		w:          w,
+		encoder:    json.NewEncoder(w),
+		preferJson: preferJson,
 	}
 }
 
@@ -46,7 +48,7 @@ func (i *jsonResponseWriter) Accept(r *http.Request) error {
 		case mediaTypeJson:
 			okJson = true
 		case mediaTypeAny:
-			i.nd = true
+			i.nd = !i.preferJson
 			okJson = true
 		}
 		if i.nd && okJson {
