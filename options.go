@@ -10,17 +10,22 @@ import (
 type (
 	Option  func(*options) error
 	options struct {
-		h              host.Host
-		httpListenAddr string
-		bootstrapPeers []peer.AddrInfo
-		useAccDHT      bool
+		h                            host.Host
+		httpListenAddr               string
+		bootstrapPeers               []peer.AddrInfo
+		useAccDHT                    bool
+		ipniCascadeLabel             string
+		httpAllowOrigin              string
+		ipniRequireCascadeQueryParam bool
 	}
 )
 
 func newOptions(o ...Option) (*options, error) {
 	opts := options{
-		httpListenAddr: "0.0.0.0:40080",
-		useAccDHT:      false,
+		httpListenAddr:   "0.0.0.0:40080",
+		useAccDHT:        false,
+		ipniCascadeLabel: "ipfs-dht",
+		httpAllowOrigin:  "*",
 	}
 	for _, apply := range o {
 		if err := apply(&opts); err != nil {
@@ -72,6 +77,30 @@ func WithBootstrapPeers(p ...peer.AddrInfo) Option {
 func WithUseAcceleratedDHT(b bool) Option {
 	return func(o *options) error {
 		o.useAccDHT = b
+		return nil
+	}
+}
+
+func WithIpniCascadeLabel(l string) Option {
+	return func(o *options) error {
+		o.ipniCascadeLabel = l
+		return nil
+	}
+}
+
+func WithHttpAllowOrigin(ao string) Option {
+	return func(o *options) error {
+		o.httpAllowOrigin = ao
+		return nil
+	}
+}
+
+// WithIpniRequireCascadeQueryParam sets whether the server should require IPNI cascade query
+// parameter with the matching label in order to respond to HTTP lookup requests.
+// See: WithIpniCascadeLabel
+func WithIpniRequireCascadeQueryParam(p bool) Option {
+	return func(o *options) error {
+		o.ipniRequireCascadeQueryParam = p
 		return nil
 	}
 }

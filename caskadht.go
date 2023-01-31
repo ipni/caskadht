@@ -85,12 +85,13 @@ func (c *Caskadht) Start(ctx context.Context) error {
 		return err
 	}
 	go func() { _ = c.s.Serve(ln) }()
-	logger.Infow("Server started", "addr", ln.Addr())
+	logger.Infow("Server started", "id", c.h.ID(), "libp2pAddrs", c.h.Addrs(), "httpAddr", ln.Addr())
 	return nil
 }
 
 func (c *Caskadht) serveMux() *http.ServeMux {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/multihash", c.handleMh)
 	mux.HandleFunc("/multihash/", c.handleMhSubtree)
 	mux.HandleFunc("/routing/v1/providers/", c.handleRoutingV1ProvidersSubtree)
 	mux.HandleFunc("/ready", c.handleReady)
@@ -98,10 +99,24 @@ func (c *Caskadht) serveMux() *http.ServeMux {
 	return mux
 }
 
+func (c *Caskadht) handleMh(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodOptions:
+		discardBody(r)
+		c.handleLookupOptions(w)
+	default:
+		discardBody(r)
+		http.Error(w, "", http.StatusNotFound)
+	}
+}
+
 func (c *Caskadht) handleMhSubtree(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		c.handleLookup(newIPNILookupResponseWriter(w), r)
+		c.handleLookup(newIPNILookupResponseWriter(w, c.ipniCascadeLabel, c.ipniRequireCascadeQueryParam), r)
+	case http.MethodOptions:
+		discardBody(r)
+		c.handleLookupOptions(w)
 	default:
 		discardBody(r)
 		http.Error(w, "", http.StatusNotFound)
@@ -112,6 +127,9 @@ func (c *Caskadht) handleRoutingV1ProvidersSubtree(w http.ResponseWriter, r *htt
 	switch r.Method {
 	case http.MethodGet:
 		c.handleLookup(newDelegatedRoutingLookupResponseWriter(w), r)
+	case http.MethodOptions:
+		discardBody(r)
+		c.handleLookupOptions(w)
 	case http.MethodPut:
 		discardBody(r)
 		http.Error(w, "", http.StatusNotImplemented)
@@ -190,6 +208,14 @@ func (c *Caskadht) routing() routing.Routing {
 		return c.acc
 	}
 	return c.std
+}
+
+func (c *Caskadht) handleLookupOptions(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", c.httpAllowOrigin)
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("X-IPNI-Allow-Cascade", c.ipniCascadeLabel)
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (c *Caskadht) handleReady(w http.ResponseWriter, r *http.Request) {
