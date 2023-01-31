@@ -36,9 +36,9 @@ type (
 	}
 )
 
-func newIPNILookupResponseWriter(w http.ResponseWriter, cascadeLabel string, requireQueryParam bool) lookupResponseWriter {
+func newIPNILookupResponseWriter(w http.ResponseWriter, cascadeLabel string, requireQueryParam bool, preferJson bool) lookupResponseWriter {
 	return &ipniLookupResponseWriter{
-		jsonResponseWriter: newJsonResponseWriter(w),
+		jsonResponseWriter: newJsonResponseWriter(w, preferJson),
 		cascadeLabel:       cascadeLabel,
 		requireQueryParam:  requireQueryParam,
 	}
@@ -89,10 +89,10 @@ func (i *ipniLookupResponseWriter) WriteProviderRecord(provider providerRecord) 
 		if i.f != nil {
 			i.f.Flush()
 		}
-		i.count++
 	} else {
 		i.result.ProviderResults = append(i.result.ProviderResults, rec)
 	}
+	i.count++
 	return nil
 }
 

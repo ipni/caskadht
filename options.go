@@ -12,10 +12,11 @@ type (
 	options struct {
 		h                            host.Host
 		httpListenAddr               string
+		httpAllowOrigin              string
+		httpResponsePreferJson       bool
 		bootstrapPeers               []peer.AddrInfo
 		useAccDHT                    bool
 		ipniCascadeLabel             string
-		httpAllowOrigin              string
 		ipniRequireCascadeQueryParam bool
 	}
 )
@@ -101,6 +102,16 @@ func WithHttpAllowOrigin(ao string) Option {
 func WithIpniRequireCascadeQueryParam(p bool) Option {
 	return func(o *options) error {
 		o.ipniRequireCascadeQueryParam = p
+		return nil
+	}
+}
+
+// WithHttpResponsePreferJson sets whether to prefer non-streaming json response over streaming
+// ndjosn when the Accept header uses `*/*` wildcard. By default, in such case ndjson streaming
+// response is preferred.
+func WithHttpResponsePreferJson(b bool) Option {
+	return func(o *options) error {
+		o.httpResponsePreferJson = b
 		return nil
 	}
 }

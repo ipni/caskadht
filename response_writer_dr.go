@@ -36,9 +36,9 @@ type (
 	}
 )
 
-func newDelegatedRoutingLookupResponseWriter(w http.ResponseWriter) lookupResponseWriter {
+func newDelegatedRoutingLookupResponseWriter(w http.ResponseWriter, preferJson bool) lookupResponseWriter {
 	return &delegatedRoutingLookupResponseWriter{
-		jsonResponseWriter: newJsonResponseWriter(w),
+		jsonResponseWriter: newJsonResponseWriter(w, preferJson),
 	}
 }
 
