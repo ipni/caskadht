@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"mime"
 	"net/http"
+	"strings"
 )
 
 const (
@@ -37,22 +38,25 @@ func (i *jsonResponseWriter) Accept(r *http.Request) error {
 	accepts := r.Header.Values("Accept")
 	var okJson bool
 	for _, accept := range accepts {
-		mt, _, err := mime.ParseMediaType(accept)
-		if err != nil {
-			logger.Debugw("Failed to check accepted response media type", "err", err)
-			return errHttpResponse{message: "invalid Accept header", status: http.StatusBadRequest}
-		}
-		switch mt {
-		case mediaTypeNDJson:
-			i.nd = true
-		case mediaTypeJson:
-			okJson = true
-		case mediaTypeAny:
-			i.nd = !i.preferJson
-			okJson = true
-		}
-		if i.nd && okJson {
-			break
+		amts := strings.Split(accept, ",")
+		for _, amt := range amts {
+			mt, _, err := mime.ParseMediaType(amt)
+			if err != nil {
+				logger.Debugw("Failed to check accepted response media type", "err", err)
+				return errHttpResponse{message: "invalid Accept header", status: http.StatusBadRequest}
+			}
+			switch mt {
+			case mediaTypeNDJson:
+				i.nd = true
+			case mediaTypeJson:
+				okJson = true
+			case mediaTypeAny:
+				i.nd = !i.preferJson
+				okJson = true
+			}
+			if i.nd && okJson {
+				break
+			}
 		}
 	}
 
