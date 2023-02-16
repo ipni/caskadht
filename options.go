@@ -18,6 +18,7 @@ type (
 		useAccDHT                    bool
 		ipniCascadeLabel             string
 		ipniRequireCascadeQueryParam bool
+		addrFilterDisabled           bool
 	}
 )
 
@@ -112,6 +113,15 @@ func WithIpniRequireCascadeQueryParam(p bool) Option {
 func WithHttpResponsePreferJson(b bool) Option {
 	return func(o *options) error {
 		o.httpResponsePreferJson = b
+		return nil
+	}
+}
+
+// WithAddrFilterDisabled sets whether to filter unroutable and private addresses from the results.
+// By default such address are excluded from results.
+func WithAddrFilterDisabled(b bool) Option {
+	return func(o *options) error {
+		o.addrFilterDisabled = b
 		return nil
 	}
 }
