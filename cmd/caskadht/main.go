@@ -12,6 +12,7 @@ import (
 	caskadht "github.com/ipni/caskadht"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/network"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 )
 
@@ -29,6 +30,7 @@ func main() {
 	httpListenAddr := flag.String("httpListenAddr", "0.0.0.0:40080", "The caskadht HTTP server listen address in address:port format.")
 	httpResponsePreferJson := flag.Bool("httpResponsePreferJson", false, `Whether to prefer responding with JSON instead of NDJSON when Accept header is set to "*/*".`)
 	useAcceleratedDHT := flag.Bool("useAcceleratedDHT", true, "Weather to use accelerated DHT client when possible.")
+	useResourceManager := flag.Bool("useResourceManager", true, "Weather to use resource manager with built-in increased limits. When disabled Resource Manager is completely disabled.")
 	ipniRequireQueryParam := flag.Bool("ipniRequireQueryParam", false, `Weather to require IPNI "cascade" query parameter with matching label in order to respond to HTTP lookup requests. Not required by default.`)
 	ipniCascadeLabel := flag.String("ipniCascadeLabel", "ipfs-dht", "The IPNI cascade label associated to this instance.")
 	logLevel := flag.String("logLevel", "info", "The logging level. Only applied if GOLOG_LOG_LEVEL environment variable is unset.")
@@ -36,6 +38,7 @@ func main() {
 
 	if _, set := os.LookupEnv("GOLOG_LOG_LEVEL"); !set {
 		_ = log.SetLogLevel("*", *logLevel)
+		_ = log.SetLogLevel("net/identify", "error")
 	}
 
 	hOpts := []libp2p.Option{
@@ -58,7 +61,7 @@ func main() {
 	if *libp2pListenAddrs != "" {
 		hOpts = append(hOpts, libp2p.ListenAddrStrings(strings.Split(*libp2pListenAddrs, ",")...))
 	}
-	if *useAcceleratedDHT {
+	if *useAcceleratedDHT && *useResourceManager {
 		// Adjust outbound connections and base limit FD to allow the accelerated DHT client to
 		// (re)load its routing table. Because, currently the client does not gracefully handle
 		// Resource Manager throttling.
@@ -87,6 +90,9 @@ func main() {
 			logger.Fatalw("Failed to adjust resource manager limits for the accelerated DHT client", "err", err)
 		}
 		hOpts = append(hOpts, libp2p.ResourceManager(rm))
+	}
+	if !*useResourceManager {
+		hOpts = append(hOpts, libp2p.ResourceManager(&network.NullResourceManager{}))
 	}
 	h, err := libp2p.New(hOpts...)
 	if err != nil {
