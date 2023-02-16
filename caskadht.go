@@ -14,6 +14,8 @@ import (
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/routing"
+	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 )
@@ -182,6 +184,16 @@ LOOP:
 				}
 				provider.Addrs = found.Addrs
 			}
+
+			if !c.addrFilterDisabled {
+				provider.Addrs = multiaddr.FilterAddrs(provider.Addrs, manet.IsPublicAddr)
+			}
+
+			if len(provider.Addrs) == 0 {
+				logger.Debugw("Found no public addrs for peer ID; skipping provider", "id", provider.ID)
+				continue
+			}
+
 			if err := w.WriteProviderRecord(providerRecord{AddrInfo: provider}); err != nil {
 				logger.Errorw("Failed to encode provider record", "err", err)
 				break LOOP
