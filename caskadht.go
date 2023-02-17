@@ -15,7 +15,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 )
@@ -186,7 +185,7 @@ LOOP:
 			}
 
 			if !c.addrFilterDisabled {
-				provider.Addrs = multiaddr.FilterAddrs(provider.Addrs, manet.IsPublicAddr)
+				provider.Addrs = multiaddr.FilterAddrs(provider.Addrs, IsPubliclyDialableAddr)
 			}
 
 			if len(provider.Addrs) == 0 {
