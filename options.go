@@ -117,8 +117,9 @@ func WithHttpResponsePreferJson(b bool) Option {
 	}
 }
 
-// WithAddrFilterDisabled sets whether to filter unroutable and private addresses from the results.
+// WithAddrFilterDisabled sets whether to filter out addresses that are not publicly dialable.
 // By default such address are excluded from results.
+// See: IsPubliclyDialableAddr.
 func WithAddrFilterDisabled(b bool) Option {
 	return func(o *options) error {
 		o.addrFilterDisabled = b
