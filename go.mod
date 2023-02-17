@@ -10,7 +10,7 @@ require (
 	github.com/libp2p/go-libp2p-kad-dht v0.21.0
 	github.com/libp2p/go-libp2p-record v0.2.0
 	github.com/multiformats/go-multiaddr v0.8.0
-	github.com/multiformats/go-multicodec v0.7.0
+	github.com/multiformats/go-multicodec v0.8.0
 	github.com/multiformats/go-multihash v0.2.1
 	github.com/multiformats/go-varint v0.0.7
 )
@@ -44,7 +44,7 @@ require (
 	github.com/ipfs/go-datastore v0.6.0 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
-	github.com/ipld/go-ipld-prime v0.19.0 // indirect
+	github.com/ipld/go-ipld-prime v0.20.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
