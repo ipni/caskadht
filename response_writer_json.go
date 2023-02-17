@@ -2,6 +2,7 @@ package cascadht
 
 import (
 	"encoding/json"
+	"fmt"
 	"mime"
 	"net/http"
 	"strings"
@@ -68,7 +69,7 @@ func (i *jsonResponseWriter) Accept(r *http.Request) error {
 		return errHttpResponse{message: "server does not support streaming response", status: http.StatusBadRequest}
 	}
 	if !okJson && !i.nd {
-		return errHttpResponse{message: "media type not supported", status: http.StatusBadRequest}
+		return errHttpResponse{message: fmt.Sprintf("media type not supported: %s", accepts), status: http.StatusBadRequest}
 	}
 
 	if i.nd {
