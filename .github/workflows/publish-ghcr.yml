@@ -1,9 +1,11 @@
 name: Publish
 
 on:
+  workflow_dispatch:
   release:
     types:
       - published
+      - released
 
 env:
   REGISTRY: ghcr.io
