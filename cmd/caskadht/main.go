@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/network"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 )
 
 var logger = log.Logger("caskadht/cmd")
@@ -27,6 +28,8 @@ const (
 func main() {
 	libp2pIdentityPath := flag.String("libp2pIdentityPath", "", "The path to the marshalled libp2p host identity. If unspecified a random identity is generated.")
 	libp2pListenAddrs := flag.String("libp2pListenAddrs", "", "The comma separated libp2p host listen multiaddrs. If unspecified the default listen multiaddrs are used at ephemeral port.")
+	libp2pConMgrLow := flag.Int("libp2pConMgrLow", 160, "The low watermark of libp2p connection manager.")
+	libp2pConMgrHigh := flag.Int("libp2pConMgrHigh", 192, "The high watermark of libp2p connection manager.")
 	httpListenAddr := flag.String("httpListenAddr", "0.0.0.0:40080", "The caskadht HTTP server listen address in address:port format.")
 	httpResponsePreferJson := flag.Bool("httpResponsePreferJson", false, `Whether to prefer responding with JSON instead of NDJSON when Accept header is set to "*/*".`)
 	useAcceleratedDHT := flag.Bool("useAcceleratedDHT", true, "Weather to use accelerated DHT client when possible.")
@@ -95,6 +98,11 @@ func main() {
 	if !*useResourceManager {
 		hOpts = append(hOpts, libp2p.ResourceManager(&network.NullResourceManager{}))
 	}
+	cmngr, err := connmgr.NewConnManager(*libp2pConMgrLow, *libp2pConMgrHigh)
+	if err != nil {
+		logger.Fatalw("Failed to instantiate connection manager", "err", err)
+	}
+	hOpts = append(hOpts, libp2p.ConnectionManager(cmngr))
 	h, err := libp2p.New(hOpts...)
 	if err != nil {
 		logger.Fatalw("Failed to instantiate libp2p host", "err", err)
