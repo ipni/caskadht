@@ -2,7 +2,6 @@ package cascadht
 
 import (
 	"net/http"
-	"path"
 	"strings"
 
 	"github.com/ipfs/go-cid"
@@ -46,7 +45,10 @@ func (d *delegatedRoutingLookupResponseWriter) Accept(r *http.Request) error {
 	if err := d.jsonResponseWriter.Accept(r); err != nil {
 		return err
 	}
-	sc := strings.TrimPrefix(path.Base(r.URL.Path), "routing/v1/providers/")
+	if !strings.HasPrefix(r.URL.Path, "/routing/v1/providers/") {
+		return errHttpResponse{status: http.StatusNotFound}
+	}
+	sc := strings.TrimPrefix(r.URL.Path, "/routing/v1/providers/")
 	var err error
 	d.key, err = cid.Decode(sc)
 	if err != nil {

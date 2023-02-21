@@ -92,6 +92,8 @@ func (c *Caskadht) Start(ctx context.Context) error {
 
 func (c *Caskadht) serveMux() *http.ServeMux {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/cid", c.handleMh)
+	mux.HandleFunc("/cid/", c.handleMhSubtree)
 	mux.HandleFunc("/multihash", c.handleMh)
 	mux.HandleFunc("/multihash/", c.handleMhSubtree)
 	mux.HandleFunc("/routing/v1/providers/", c.handleRoutingV1ProvidersSubtree)
