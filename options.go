@@ -1,6 +1,8 @@
 package cascadht
 
 import (
+	"time"
+
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -19,15 +21,20 @@ type (
 		ipniCascadeLabel             string
 		ipniRequireCascadeQueryParam bool
 		addrFilterDisabled           bool
+		findProvidersLimit           int
+		prAttemptCacheMaxSize        int
+		prAttemptCacheMaxAge         time.Duration
 	}
 )
 
 func newOptions(o ...Option) (*options, error) {
 	opts := options{
-		httpListenAddr:   "0.0.0.0:40080",
-		useAccDHT:        false,
-		ipniCascadeLabel: "ipfs-dht",
-		httpAllowOrigin:  "*",
+		httpListenAddr:        "0.0.0.0:40080",
+		useAccDHT:             false,
+		ipniCascadeLabel:      "ipfs-dht",
+		httpAllowOrigin:       "*",
+		prAttemptCacheMaxSize: 1024,
+		prAttemptCacheMaxAge:  20 * time.Minute,
 	}
 	for _, apply := range o {
 		if err := apply(&opts); err != nil {
@@ -123,6 +130,15 @@ func WithHttpResponsePreferJson(b bool) Option {
 func WithAddrFilterDisabled(b bool) Option {
 	return func(o *options) error {
 		o.addrFilterDisabled = b
+		return nil
+	}
+}
+
+// WithFindProvidersLimit sets the limit on number of providers to find.
+// Defaults to zero, i.e. no limit.
+func WithFindProvidersLimit(l int) Option {
+	return func(o *options) error {
+		o.findProvidersLimit = l
 		return nil
 	}
 }
