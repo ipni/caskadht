@@ -3,6 +3,7 @@ module github.com/ipni/caskadht
 go 1.19
 
 require (
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/ipfs/go-cid v0.3.2
 	github.com/ipfs/go-ipns v0.3.0
 	github.com/ipfs/go-log/v2 v2.5.1

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipns"
@@ -13,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multicodec"
@@ -34,8 +36,9 @@ type Caskadht struct {
 	s   *http.Server
 
 	// Context and cancellation used to terminate streaming responses on shutdown.
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx      context.Context
+	cancel   context.CancelFunc
+	attCache *peerRoutingAttemptCache
 }
 
 const ipfsProtocolPrefix = "/ipfs"
@@ -53,6 +56,7 @@ func New(o ...Option) (*Caskadht, error) {
 	}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	c.s.RegisterOnShutdown(c.cancel)
+	c.attCache = newPeerRoutingAttemptCache(opts.prAttemptCacheMaxSize, opts.prAttemptCacheMaxAge)
 	return &c, nil
 }
 
@@ -168,33 +172,6 @@ LOOP:
 				logger.Debugw("No more provider records", "key", w.Key())
 				break LOOP
 			}
-
-			if err := provider.ID.Validate(); err != nil {
-				logger.Debugw("Skipping provider record with invalid ID", "err", err)
-				continue
-			}
-			if len(provider.Addrs) == 0 {
-				found, err := c.routing().FindPeer(ctx, provider.ID)
-				if err != nil {
-					logger.Errorw("Failed to discover addrs for peer ID; skipping provider.", "id", provider.ID, "err", err)
-					continue
-				}
-				if len(found.Addrs) == 0 {
-					logger.Debugw("Found no addrs for peer ID; skipping provider", "id", provider.ID)
-					continue
-				}
-				provider.Addrs = found.Addrs
-			}
-
-			if !c.addrFilterDisabled {
-				provider.Addrs = multiaddr.FilterAddrs(provider.Addrs, IsPubliclyDialableAddr)
-			}
-
-			if len(provider.Addrs) == 0 {
-				logger.Debugw("Found no public addrs for peer ID; skipping provider", "id", provider.ID)
-				continue
-			}
-
 			if err := w.WriteProviderRecord(providerRecord{AddrInfo: provider}); err != nil {
 				logger.Errorw("Failed to encode provider record", "err", err)
 				break LOOP
@@ -213,7 +190,97 @@ LOOP:
 }
 
 func (c *Caskadht) cascadeFindProviders(ctx context.Context, key cid.Cid) <-chan peer.AddrInfo {
-	return c.routing().FindProvidersAsync(ctx, key, 0)
+	rch := make(chan peer.AddrInfo, 1)
+	go func() {
+		var fpwg sync.WaitGroup
+		fpch := make(chan peer.AddrInfo, 1)
+		defer func() {
+			close(rch)
+			fpwg.Wait()
+			close(fpch)
+		}()
+		dhtch := c.routing().FindProvidersAsync(ctx, key, c.findProvidersLimit)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case provider, ok := <-fpch:
+				if !ok {
+					return
+				}
+				// If addrs should be filtered; do so.
+				if !c.addrFilterDisabled {
+					provider.Addrs = multiaddr.FilterAddrs(provider.Addrs, IsPubliclyDialableAddr)
+				}
+				// If after filtering no addrs are left, skip the result.
+				if len(provider.Addrs) == 0 {
+					logger.Debugw("Found no public addrs for peer ID; skipping provider", "id", provider.ID)
+					continue
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case rch <- provider:
+				}
+			case provider, ok := <-dhtch:
+				if !ok {
+					return
+				}
+				if err := provider.ID.Validate(); err != nil {
+					logger.Debugw("Skipping provider record with invalid ID", "err", err)
+					continue
+				}
+				// If there are no addrs, populate addrs from local peerstore.
+				if len(provider.Addrs) == 0 {
+					provider.Addrs = c.h.Peerstore().Addrs(provider.ID)
+				}
+
+				// If there are still no addrs, attempt to lookup addrs from the DHT and populate
+				// the peerstore in the background and skip the result.
+				if len(provider.Addrs) == 0 && c.attCache.attempt(provider.ID) {
+					fpwg.Add(1)
+					go func(pid peer.ID) {
+						defer fpwg.Done()
+						found, err := c.routing().FindPeer(ctx, pid)
+						if err != nil {
+							logger.Errorw("Failed to discover addrs for peer ID; skipping provider.", "id", provider.ID, "err", err)
+							return
+						}
+						if len(found.Addrs) == 0 {
+							logger.Debugw("Found no addrs for peer ID; skipping provider", "id", provider.ID)
+							return
+						}
+						c.h.Peerstore().AddAddrs(found.ID, found.Addrs, peerstore.AddressTTL)
+						select {
+						case <-ctx.Done():
+							return
+						case fpch <- found:
+						}
+					}(provider.ID)
+					continue
+				}
+
+				// If addrs should be filtered; do so.
+				if !c.addrFilterDisabled {
+					provider.Addrs = multiaddr.FilterAddrs(provider.Addrs, IsPubliclyDialableAddr)
+				}
+
+				// If after filtering no addrs are left, skip the result.
+				if len(provider.Addrs) == 0 {
+					logger.Debugw("Found no public addrs for peer ID; skipping provider", "id", provider.ID)
+					continue
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				case rch <- provider:
+				}
+			}
+		}
+	}()
+
+	return rch
 }
 
 func (c *Caskadht) routing() routing.Routing {
