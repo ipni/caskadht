@@ -2,7 +2,6 @@ package cascadht
 
 import (
 	"net/http"
-	"path"
 	"strings"
 
 	"github.com/ipfs/go-cid"
@@ -58,11 +57,26 @@ func (i *ipniLookupResponseWriter) Accept(r *http.Request) error {
 			return errHttpResponse{status: http.StatusNotFound}
 		}
 	}
-	smh := strings.TrimPrefix(path.Base(r.URL.Path), "multihash/")
-	var err error
-	i.result.Multihash, err = multihash.FromB58String(smh)
-	if err != nil {
-		return errHttpResponse{message: err.Error(), status: http.StatusBadRequest}
+
+	path := r.URL.Path
+	switch {
+	case strings.HasPrefix(path, "/cid/"):
+		scid := strings.TrimPrefix(path, "/cid/")
+		var err error
+		c, err := cid.Decode(scid)
+		if err != nil {
+			return errHttpResponse{message: err.Error(), status: http.StatusBadRequest}
+		}
+		i.result.Multihash = c.Hash()
+	case strings.HasPrefix(path, "/multihash/"):
+		smh := strings.TrimPrefix(path, "/multihash/")
+		var err error
+		i.result.Multihash, err = multihash.FromB58String(smh)
+		if err != nil {
+			return errHttpResponse{message: err.Error(), status: http.StatusBadRequest}
+		}
+	default:
+		return errHttpResponse{status: http.StatusNotFound}
 	}
 	return nil
 }
