@@ -48,12 +48,20 @@ func (i *ipniLookupResponseWriter) Accept(r *http.Request) error {
 		return err
 	}
 	if i.requireQueryParam {
-		if !r.URL.Query().Has(ipniCascadeQueryKey) {
+		labels, present := r.URL.Query()[ipniCascadeQueryKey]
+		if !present {
 			logger.Debugw("Rejected request with unspecified cascade query parameter.")
 			return errHttpResponse{status: http.StatusNotFound}
 		}
-		if got := r.URL.Query().Get(ipniCascadeQueryKey); i.cascadeLabel != got {
-			logger.Debugw("Rejected request with mismatching cascade label.", "want", i.cascadeLabel, "got", got)
+		var matched bool
+		for _, label := range labels {
+			if i.cascadeLabel == label {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			logger.Infow("Rejected request with mismatching cascade label.", "want", i.cascadeLabel, "got", labels)
 			return errHttpResponse{status: http.StatusNotFound}
 		}
 	}
