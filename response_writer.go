@@ -1,4 +1,4 @@
-package cascadht
+package caskadht
 
 import (
 	"io"

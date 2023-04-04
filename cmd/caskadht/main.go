@@ -31,6 +31,7 @@ func main() {
 	libp2pConMgrLow := flag.Int("libp2pConMgrLow", 160, "The low watermark of libp2p connection manager.")
 	libp2pConMgrHigh := flag.Int("libp2pConMgrHigh", 192, "The high watermark of libp2p connection manager.")
 	httpListenAddr := flag.String("httpListenAddr", "0.0.0.0:40080", "The caskadht HTTP server listen address in address:port format.")
+	metricsListenAddr := flag.String("metricsListenAddr", "0.0.0.0:40081", "The caskadht HTTP metrics listen address in address:port format.")
 	httpResponsePreferJson := flag.Bool("httpResponsePreferJson", false, `Whether to prefer responding with JSON instead of NDJSON when Accept header is set to "*/*".`)
 	useAcceleratedDHT := flag.Bool("useAcceleratedDHT", true, "Weather to use accelerated DHT client when possible.")
 	useResourceManager := flag.Bool("useResourceManager", true, "Weather to use resource manager with built-in increased limits. When disabled Resource Manager is completely disabled.")
@@ -111,6 +112,7 @@ func main() {
 	c, err := caskadht.New(
 		caskadht.WithHost(h),
 		caskadht.WithHttpListenAddr(*httpListenAddr),
+		caskadht.WithMetricsListenAddr(*metricsListenAddr),
 		caskadht.WithUseAcceleratedDHT(*useAcceleratedDHT),
 		caskadht.WithIpniCascadeLabel(*ipniCascadeLabel),
 		caskadht.WithIpniRequireCascadeQueryParam(*ipniRequireQueryParam),
