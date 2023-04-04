@@ -1,4 +1,4 @@
-package cascadht
+package caskadht
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipns"
@@ -31,9 +33,10 @@ var (
 
 type Caskadht struct {
 	*options
-	std *dht.IpfsDHT
-	acc *fullrt.FullRT
-	s   *http.Server
+	std     *dht.IpfsDHT
+	acc     *fullrt.FullRT
+	s       *http.Server
+	metrics *metrics
 
 	// Context and cancellation used to terminate streaming responses on shutdown.
 	ctx      context.Context
@@ -57,10 +60,17 @@ func New(o ...Option) (*Caskadht, error) {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	c.s.RegisterOnShutdown(c.cancel)
 	c.attCache = newPeerRoutingAttemptCache(opts.prAttemptCacheMaxSize, opts.prAttemptCacheMaxAge)
+	c.metrics, err = newMetrics(&c)
+	if err != nil {
+		return nil, err
+	}
 	return &c, nil
 }
 
 func (c *Caskadht) Start(ctx context.Context) error {
+	if err := c.metrics.Start(ctx); err != nil {
+		return err
+	}
 	var err error
 	// TODO parameterize options
 	c.std, err = dht.New(ctx, c.h, dht.Mode(dht.ModeClient), dht.BootstrapPeers(c.bootstrapPeers...))
@@ -190,12 +200,17 @@ LOOP:
 }
 
 func (c *Caskadht) cascadeFindProviders(ctx context.Context, key cid.Cid) <-chan peer.AddrInfo {
+	start := time.Now()
+	c.metrics.notifyLookupRequested(ctx)
+	var timeToFirstProvider time.Duration
 	rch := make(chan peer.AddrInfo, 1)
 	go func() {
+		var resultCount atomic.Int64
 		var fpwg sync.WaitGroup
 		fpch := make(chan peer.AddrInfo, 1)
 		defer func() {
 			close(rch)
+			c.metrics.notifyLookupResponded(context.Background(), resultCount.Load(), timeToFirstProvider, time.Since(start))
 			fpwg.Wait()
 			close(fpch)
 		}()
@@ -221,6 +236,9 @@ func (c *Caskadht) cascadeFindProviders(ctx context.Context, key cid.Cid) <-chan
 				case <-ctx.Done():
 					return
 				case rch <- provider:
+					if resultCount.Add(1) == 1 {
+						timeToFirstProvider = time.Since(start)
+					}
 				}
 			case provider, ok := <-dhtch:
 				if !ok {
@@ -275,6 +293,9 @@ func (c *Caskadht) cascadeFindProviders(ctx context.Context, key cid.Cid) <-chan
 				case <-ctx.Done():
 					return
 				case rch <- provider:
+					if resultCount.Add(1) == 1 {
+						timeToFirstProvider = time.Since(start)
+					}
 				}
 			}
 		}
@@ -314,13 +335,14 @@ func (c *Caskadht) handleCatchAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Caskadht) Shutdown(ctx context.Context) error {
+
 	sErr := c.s.Shutdown(ctx)
 	_ = c.std.Close()
 	if c.acc != nil {
 		_ = c.acc.Close()
 	}
 	hErr := c.h.Close()
-
+	_ = c.metrics.Shutdown(ctx)
 	switch {
 	case sErr != nil:
 		return sErr

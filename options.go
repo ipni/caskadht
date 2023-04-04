@@ -1,4 +1,4 @@
-package cascadht
+package caskadht
 
 import (
 	"time"
@@ -16,6 +16,8 @@ type (
 		httpListenAddr               string
 		httpAllowOrigin              string
 		httpResponsePreferJson       bool
+		metricsHttpListenAddr        string
+		metricsEnablePprofDebug      bool
 		bootstrapPeers               []peer.AddrInfo
 		useAccDHT                    bool
 		ipniCascadeLabel             string
@@ -29,12 +31,14 @@ type (
 
 func newOptions(o ...Option) (*options, error) {
 	opts := options{
-		httpListenAddr:        "0.0.0.0:40080",
-		useAccDHT:             false,
-		ipniCascadeLabel:      "ipfs-dht",
-		httpAllowOrigin:       "*",
-		prAttemptCacheMaxSize: 1024,
-		prAttemptCacheMaxAge:  20 * time.Minute,
+		httpListenAddr:          "0.0.0.0:40080",
+		metricsHttpListenAddr:   "0.0.0.0:40081",
+		metricsEnablePprofDebug: true,
+		useAccDHT:               false,
+		ipniCascadeLabel:        "ipfs-dht",
+		httpAllowOrigin:         "*",
+		prAttemptCacheMaxSize:   1024,
+		prAttemptCacheMaxAge:    20 * time.Minute,
 	}
 	for _, apply := range o {
 		if err := apply(&opts); err != nil {
@@ -139,6 +143,20 @@ func WithAddrFilterDisabled(b bool) Option {
 func WithFindProvidersLimit(l int) Option {
 	return func(o *options) error {
 		o.findProvidersLimit = l
+		return nil
+	}
+}
+
+func WithMetricsEnablePprofDebug(b bool) Option {
+	return func(o *options) error {
+		o.metricsEnablePprofDebug = b
+		return nil
+	}
+}
+
+func WithMetricsListenAddr(a string) Option {
+	return func(o *options) error {
+		o.metricsHttpListenAddr = a
 		return nil
 	}
 }
