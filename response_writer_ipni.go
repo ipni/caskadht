@@ -104,10 +104,6 @@ func (i *ipniLookupResponseWriter) WriteProviderRecord(provider providerRecord) 
 			logger.Errorw("Failed to encode ndjson response", "err", err)
 			return err
 		}
-		if _, err := i.w.Write(newline); err != nil {
-			logger.Errorw("Failed to encode ndjson response", "err", err)
-			return err
-		}
 		if i.f != nil {
 			i.f.Flush()
 		}

@@ -72,10 +72,6 @@ func (d *delegatedRoutingLookupResponseWriter) WriteProviderRecord(provider prov
 			logger.Errorw("Failed to encode ndjson response", "err", err)
 			return err
 		}
-		if _, err := d.w.Write(newline); err != nil {
-			logger.Errorw("Failed to encode ndjson response", "err", err)
-			return err
-		}
 		if d.f != nil {
 			d.f.Flush()
 		}
