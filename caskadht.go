@@ -26,7 +26,6 @@ import (
 var (
 	logger = log.Logger("caskadht")
 
-	newline          = []byte("\n")
 	cascadeContextID = []byte("ipfs-dht-cascade")
 	cascadeMetadata  = varint.ToUvarint(uint64(multicodec.TransportBitswap))
 )
