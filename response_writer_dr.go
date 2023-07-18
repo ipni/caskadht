@@ -4,24 +4,20 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ipfs/go-cid"
+	"github.com/ipni/go-libipni/apierror"
+	"github.com/ipni/go-libipni/rwriter"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multicodec"
 )
 
-var (
-	_ lookupResponseWriter = (*delegatedRoutingLookupResponseWriter)(nil)
-
-	drProtocolBitswap = multicodec.TransportBitswap.String()
-)
+var drProtocolBitswap = multicodec.TransportBitswap.String()
 
 const drSchemaBitswap = "bitswap"
 
 type (
 	delegatedRoutingLookupResponseWriter struct {
-		jsonResponseWriter
-		key    cid.Cid
+		rwriter.ResponseWriter
 		result drProviderRecords
 	}
 	drProviderRecords struct {
@@ -35,55 +31,45 @@ type (
 	}
 )
 
-func newDelegatedRoutingLookupResponseWriter(w http.ResponseWriter, preferJson bool) lookupResponseWriter {
-	return &delegatedRoutingLookupResponseWriter{
-		jsonResponseWriter: newJsonResponseWriter(w, preferJson),
-	}
-}
-
-func (d *delegatedRoutingLookupResponseWriter) Accept(r *http.Request) error {
-	if err := d.jsonResponseWriter.Accept(r); err != nil {
-		return err
-	}
+func newDelegatedRoutingLookupResponseWriter(w http.ResponseWriter, r *http.Request, preferJson bool) (*delegatedRoutingLookupResponseWriter, error) {
 	if !strings.HasPrefix(r.URL.Path, "/routing/v1/providers/") {
-		return errHttpResponse{status: http.StatusNotFound}
+		return nil, apierror.New(nil, http.StatusNotFound)
 	}
-	sc := strings.TrimPrefix(r.URL.Path, "/routing/v1/providers/")
-	var err error
-	d.key, err = cid.Decode(sc)
+	rspWriter, err := rwriter.New(w, r,
+		rwriter.WithPreferJson(preferJson),
+		rwriter.WithMultihashPathType(""),
+		rwriter.WithCidPathType("providers"),
+	)
 	if err != nil {
-		return errHttpResponse{message: err.Error(), status: http.StatusBadRequest}
+		return nil, err
 	}
-	return nil
-}
-func (d *delegatedRoutingLookupResponseWriter) Key() cid.Cid {
-	return d.key
+	return &delegatedRoutingLookupResponseWriter{
+		ResponseWriter: rspWriter,
+	}, nil
 }
 
-func (d *delegatedRoutingLookupResponseWriter) WriteProviderRecord(provider providerRecord) error {
+func (d *delegatedRoutingLookupResponseWriter) writeDrProviderRecord(provider peer.AddrInfo) error {
 	rec := drProviderRecord{
 		Protocol: drProtocolBitswap,
 		Schema:   drSchemaBitswap,
 		ID:       provider.ID,
 		Addrs:    provider.Addrs,
 	}
-	if d.nd {
-		if err := d.encoder.Encode(rec); err != nil {
+	if d.IsND() {
+		if err := d.Encoder().Encode(rec); err != nil {
 			logger.Errorw("Failed to encode ndjson response", "err", err)
 			return err
 		}
-		if d.f != nil {
-			d.f.Flush()
-		}
+		d.Flush()
 	} else {
 		d.result.Providers = append(d.result.Providers, rec)
 	}
 	return nil
 }
 
-func (d *delegatedRoutingLookupResponseWriter) Close() error {
-	if d.nd {
+func (d *delegatedRoutingLookupResponseWriter) close() error {
+	if d.IsND() {
 		return nil
 	}
-	return d.encoder.Encode(d.result)
+	return d.Encoder().Encode(d.result)
 }
