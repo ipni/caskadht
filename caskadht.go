@@ -2,6 +2,7 @@ package caskadht
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -12,6 +13,9 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipns"
 	"github.com/ipfs/go-log/v2"
+	"github.com/ipni/go-libipni/apierror"
+	"github.com/ipni/go-libipni/find/model"
+	"github.com/ipni/go-libipni/rwriter"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
 	record "github.com/libp2p/go-libp2p-record"
@@ -22,6 +26,8 @@ import (
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 )
+
+const ipniCascadeQueryKey = "cascade"
 
 var (
 	logger = log.Logger("caskadht")
@@ -129,7 +135,31 @@ func (c *Caskadht) handleMh(w http.ResponseWriter, r *http.Request) {
 func (c *Caskadht) handleMhSubtree(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		c.handleLookup(newIPNILookupResponseWriter(w, c.ipniCascadeLabel, c.ipniRequireCascadeQueryParam, c.httpResponsePreferJson), r)
+		rspWriter, err := rwriter.New(w, r, rwriter.WithPreferJson(c.httpResponsePreferJson))
+		if err != nil {
+			var apiErr *apierror.Error
+			if errors.As(err, &apiErr) {
+				http.Error(w, apiErr.Error(), apiErr.Status())
+				return
+			}
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		if c.ipniRequireCascadeQueryParam {
+			present, matched := rwriter.MatchQueryParam(r, ipniCascadeQueryKey, c.ipniCascadeLabel)
+			if !present {
+				logger.Debugw("Rejected request with unspecified cascade query parameter.")
+				http.Error(w, "", http.StatusNotFound)
+				return
+			}
+			if !matched {
+				labels, _ := r.URL.Query()[ipniCascadeQueryKey]
+				logger.Infow("Rejected request with mismatching cascade label.", "want", c.ipniCascadeLabel, "got", labels)
+				http.Error(w, "", http.StatusNotFound)
+				return
+			}
+		}
+		c.handleLookup(rwriter.NewProviderResponseWriter(rspWriter), r)
 	case http.MethodOptions:
 		discardBody(r)
 		c.handleLookupOptions(w)
@@ -142,7 +172,18 @@ func (c *Caskadht) handleMhSubtree(w http.ResponseWriter, r *http.Request) {
 func (c *Caskadht) handleRoutingV1ProvidersSubtree(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		c.handleLookup(newDelegatedRoutingLookupResponseWriter(w, c.httpResponsePreferJson), r)
+		drWriter, err := newDelegatedRoutingLookupResponseWriter(w, r, c.httpResponsePreferJson)
+		if err != nil {
+			var apiErr *apierror.Error
+			if errors.As(err, &apiErr) {
+				http.Error(w, "", apiErr.Status())
+				return
+			}
+			logger.Errorw("Cannot handle delegated routing lookup", "err", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		c.handleDrLookup(drWriter, r)
 	case http.MethodOptions:
 		discardBody(r)
 		c.handleLookupOptions(w)
@@ -155,46 +196,71 @@ func (c *Caskadht) handleRoutingV1ProvidersSubtree(w http.ResponseWriter, r *htt
 	}
 }
 
-func (c *Caskadht) handleLookup(w lookupResponseWriter, r *http.Request) {
-	if err := w.Accept(r); err != nil {
-		switch e := err.(type) {
-		case errHttpResponse:
-			e.WriteTo(w)
-		default:
-			logger.Errorw("Failed to accept lookup request", "err", err)
-			http.Error(w, "", http.StatusInternalServerError)
-		}
-		return
-	}
-
+func (c *Caskadht) handleLookup(w *rwriter.ProviderResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
-	pch := c.cascadeFindProviders(ctx, w.Key())
+	pch := c.cascadeFindProviders(ctx, w.Cid())
 	defer cancel()
 LOOP:
 	for {
 		select {
 		case <-c.ctx.Done():
-			logger.Debugw("Interrupted while responding to lookup", "key", w.Key(), "err", ctx.Err())
+			logger.Debugw("Interrupted while responding to lookup", "key", w.Cid(), "err", ctx.Err())
 			break LOOP
 		case provider, ok := <-pch:
 			if !ok {
-				logger.Debugw("No more provider records", "key", w.Key())
+				logger.Debugw("No more provider records", "key", w.Cid())
 				break LOOP
 			}
-			if err := w.WriteProviderRecord(providerRecord{AddrInfo: provider}); err != nil {
+			err := w.WriteProviderResult(model.ProviderResult{
+				ContextID: cascadeContextID,
+				Metadata:  cascadeMetadata,
+				Provider: &peer.AddrInfo{
+					ID:    provider.ID,
+					Addrs: provider.Addrs,
+				},
+			})
+			if err != nil {
 				logger.Errorw("Failed to encode provider record", "err", err)
 				break LOOP
 			}
 		}
 	}
 	if err := w.Close(); err != nil {
-		switch e := err.(type) {
-		case errHttpResponse:
-			e.WriteTo(w)
-		default:
-			logger.Errorw("Failed to finalize lookup results", "err", err)
-			http.Error(w, "", http.StatusInternalServerError)
+		var apiErr *apierror.Error
+		if errors.As(err, &apiErr) {
+			http.Error(w, "", apiErr.Status())
+			return
 		}
+		logger.Errorw("Failed to finalize lookup results", "err", err)
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+}
+
+func (c *Caskadht) handleDrLookup(w *delegatedRoutingLookupResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithCancel(r.Context())
+	pch := c.cascadeFindProviders(ctx, w.Cid())
+	defer cancel()
+LOOP:
+	for {
+		select {
+		case <-c.ctx.Done():
+			logger.Debugw("Interrupted while responding to lookup", "key", w.Cid(), "err", ctx.Err())
+			break LOOP
+		case provider, ok := <-pch:
+			if !ok {
+				logger.Debugw("No more provider records", "key", w.Cid())
+				break LOOP
+			}
+			err := w.writeDrProviderRecord(provider)
+			if err != nil {
+				logger.Errorw("Failed to encode provider record", "err", err)
+				break LOOP
+			}
+		}
+	}
+	if err := w.close(); err != nil {
+		logger.Errorw("Failed to finalize lookup results", "err", err)
+		http.Error(w, "", http.StatusInternalServerError)
 	}
 }
 
