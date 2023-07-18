@@ -153,7 +153,7 @@ func (c *Caskadht) handleMhSubtree(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !matched {
-				labels, _ := r.URL.Query()[ipniCascadeQueryKey]
+				labels := r.URL.Query()[ipniCascadeQueryKey]
 				logger.Infow("Rejected request with mismatching cascade label.", "want", c.ipniCascadeLabel, "got", labels)
 				http.Error(w, "", http.StatusNotFound)
 				return
