@@ -60,7 +60,7 @@ func (d *delegatedRoutingLookupResponseWriter) writeDrProviderRecord(provider pe
 			logger.Errorw("Failed to encode ndjson response", "err", err)
 			return err
 		}
-		d.WriteND()
+		d.Flush()
 	} else {
 		d.result.Providers = append(d.result.Providers, rec)
 	}

@@ -7,7 +7,7 @@ require (
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipfs/go-ipns v0.3.0
 	github.com/ipfs/go-log/v2 v2.5.1
-	github.com/ipni/go-libipni v0.2.11-0.20230718014310-0f5ace5fdf0d
+	github.com/ipni/go-libipni v0.2.12
 	github.com/libp2p/go-libp2p v0.28.1
 	github.com/libp2p/go-libp2p-kad-dht v0.21.0
 	github.com/libp2p/go-libp2p-record v0.2.0
