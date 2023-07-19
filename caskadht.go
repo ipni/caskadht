@@ -3,7 +3,6 @@ package caskadht
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"sync"
@@ -124,10 +123,8 @@ func (c *Caskadht) serveMux() *http.ServeMux {
 func (c *Caskadht) handleMh(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodOptions:
-		discardBody(r)
 		c.handleLookupOptions(w)
 	default:
-		discardBody(r)
 		http.Error(w, "", http.StatusNotFound)
 	}
 }
@@ -161,10 +158,8 @@ func (c *Caskadht) handleMhSubtree(w http.ResponseWriter, r *http.Request) {
 		}
 		c.handleLookup(rwriter.NewProviderResponseWriter(rspWriter), r)
 	case http.MethodOptions:
-		discardBody(r)
 		c.handleLookupOptions(w)
 	default:
-		discardBody(r)
 		http.Error(w, "", http.StatusNotFound)
 	}
 }
@@ -185,13 +180,10 @@ func (c *Caskadht) handleRoutingV1ProvidersSubtree(w http.ResponseWriter, r *htt
 		}
 		c.handleDrLookup(drWriter, r)
 	case http.MethodOptions:
-		discardBody(r)
 		c.handleLookupOptions(w)
 	case http.MethodPut:
-		discardBody(r)
 		http.Error(w, "", http.StatusNotImplemented)
 	default:
-		discardBody(r)
 		http.Error(w, "", http.StatusNotFound)
 	}
 }
@@ -385,7 +377,6 @@ func (c *Caskadht) handleLookupOptions(w http.ResponseWriter) {
 }
 
 func (c *Caskadht) handleReady(w http.ResponseWriter, r *http.Request) {
-	discardBody(r)
 	switch r.Method {
 	case http.MethodGet:
 		w.WriteHeader(http.StatusOK)
@@ -395,12 +386,10 @@ func (c *Caskadht) handleReady(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Caskadht) handleCatchAll(w http.ResponseWriter, r *http.Request) {
-	discardBody(r)
 	http.Error(w, "", http.StatusNotFound)
 }
 
 func (c *Caskadht) Shutdown(ctx context.Context) error {
-
 	sErr := c.s.Shutdown(ctx)
 	_ = c.std.Close()
 	if c.acc != nil {
@@ -414,9 +403,4 @@ func (c *Caskadht) Shutdown(ctx context.Context) error {
 	default:
 		return hErr
 	}
-}
-
-func discardBody(r *http.Request) {
-	_, _ = io.Copy(io.Discard, r.Body)
-	_ = r.Body.Close()
 }
