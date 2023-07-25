@@ -377,12 +377,14 @@ func (c *Caskadht) handleLookupOptions(w http.ResponseWriter) {
 }
 
 func (c *Caskadht) handleReady(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		w.WriteHeader(http.StatusOK)
-	default:
-		http.Error(w, "", http.StatusNotFound)
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return
 	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+	http.Error(w, Version, http.StatusOK)
 }
 
 func (c *Caskadht) handleCatchAll(w http.ResponseWriter, r *http.Request) {

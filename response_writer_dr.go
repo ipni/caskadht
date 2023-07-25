@@ -44,7 +44,7 @@ func newDelegatedRoutingLookupResponseWriter(w http.ResponseWriter, r *http.Requ
 		return nil, err
 	}
 	return &delegatedRoutingLookupResponseWriter{
-		ResponseWriter: rspWriter,
+		ResponseWriter: *rspWriter,
 	}, nil
 }
 
