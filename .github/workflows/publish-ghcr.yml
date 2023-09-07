@@ -6,6 +6,10 @@ on:
     types:
       - published
       - released
+  workflow_run:
+    workflows: [Releaser]
+    types:
+      - completed
 
 env:
   REGISTRY: ghcr.io
@@ -14,19 +18,30 @@ env:
 jobs:
   build-and-push-image:
     name: Container
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
+      - name: Inspect Releaser
+        id: releaser
+        if: github.event_name == 'workflow_run'
+        uses: pl-strflt/uci/.github/actions/inspect-releaser@main
+        with:
+          artifacts-url: ${{ github.event.workflow_run.artifacts_url }}
+          
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.releaser.outputs.version || github.ref }}
+          
       - name: Log in to the Container registry
         uses: docker/login-action@v2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
           tags: |
             type=semver,pattern={{version}}
       - name: Extract metadata (tags, labels) for Docker
