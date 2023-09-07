@@ -16,25 +16,33 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  prepare-checkout:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    name: Decide what ref to check out
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ github.event_name != 'workflow_run' && github.ref || steps.releaser.outputs.version }}
+    steps:
+      - name: Inspect triggering Releaser workflow run
+        id: releaser
+        if: github.event_name == 'workflow_run'
+        uses: pl-strflt/uci/.github/actions/inspect-releaser@v0.0
+        with:
+          artifacts-url: ${{ github.event.workflow_run.artifacts_url }}
+
   build-and-push-image:
     name: Container
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    needs: [prepare-checkout]
+    if: needs.prepare_checkout.outputs.ref != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Inspect Releaser
-        id: releaser
-        if: github.event_name == 'workflow_run'
-        uses: pl-strflt/uci/.github/actions/inspect-releaser@main
-        with:
-          artifacts-url: ${{ github.event.workflow_run.artifacts_url }}
-          
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          ref: ${{ steps.releaser.outputs.version || github.ref }}
+          ref: ${{ needs.prepare_checkout.outputs.ref }}
           
       - name: Log in to the Container registry
         uses: docker/login-action@v2
