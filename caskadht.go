@@ -125,7 +125,10 @@ func (c *Caskadht) handleMh(w http.ResponseWriter, r *http.Request) {
 	case http.MethodOptions:
 		c.handleLookupOptions(w)
 	default:
-		http.Error(w, "", http.StatusNotFound)
+		w.Header().Set("Allow", http.MethodGet)
+		w.Header().Add("Allow", http.MethodOptions)
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return
 	}
 }
 
@@ -160,7 +163,9 @@ func (c *Caskadht) handleMhSubtree(w http.ResponseWriter, r *http.Request) {
 	case http.MethodOptions:
 		c.handleLookupOptions(w)
 	default:
-		http.Error(w, "", http.StatusNotFound)
+		w.Header().Set("Allow", http.MethodGet)
+		w.Header().Add("Allow", http.MethodOptions)
+		http.Error(w, "", http.StatusMethodNotAllowed)
 	}
 }
 
@@ -184,7 +189,9 @@ func (c *Caskadht) handleRoutingV1ProvidersSubtree(w http.ResponseWriter, r *htt
 	case http.MethodPut:
 		http.Error(w, "", http.StatusNotImplemented)
 	default:
-		http.Error(w, "", http.StatusNotFound)
+		w.Header().Set("Allow", http.MethodGet)
+		w.Header().Add("Allow", http.MethodOptions)
+		http.Error(w, "", http.StatusMethodNotAllowed)
 	}
 }
 
